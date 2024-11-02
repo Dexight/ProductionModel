@@ -86,20 +86,82 @@ namespace ProductionModel
             }
         }
 
-        static void ForwardSearch(string[] getted_facts, string need)
+        static bool Pred((string, List<string>) elem, string equal)
         {
-            if (getted_facts.Length == 1 && getted_facts[0] == need)
+            return elem.Item1 == equal;
+        }
+
+        static void ForwardSearch(HashSet<string> getted_facts, string need)
+        {
+            if (getted_facts.Count == 1 && getted_facts.Contains(need))
             {
                 Console.WriteLine($"'{description[need]}' <=> '{description[need]}'.\nГлубина 0."); 
                 return;
             }
 
+            int depth = 0;
+            HashSet<string> newAndOldFacts = new HashSet<string>();
+            while (true)
+            {
+                ++depth;
 
+                bool can_continue = false;
+                foreach (string s in getted_facts)
+                {
+                    // Смотрим, можно ли что-то получить из текущего факта
+                    HashSet<string> can_goto;
+                    if (forward_productions.ContainsKey(s))
+                    {
+                        can_goto = forward_productions[s];
+                        can_continue = true;
+                    }
+                    else continue;
+
+                    // Проходим по кандидатным правилам, в которых слева участвует факт 's'
+                    foreach(string cgt in can_goto)
+                    {
+                        if (getted_facts.Contains(cgt)) continue;//если такой факт уже имеется/доказан
+
+                        List<List<string>> founded_productions = reverce_productions.Where(elem => Pred(elem, cgt)).Select(elem => elem.Item2).ToList();//список с доказательствами для cgt
+
+                        //есть ли всё необходимое для одного из док-в
+                        if (founded_productions.Exists(lst => {
+                            foreach (string f in lst)
+                                if (!getted_facts.Contains(f)) return false;
+                            return true;
+                        }))
+                        {
+                            newAndOldFacts.Add(cgt);
+                        }
+                    }
+                }
+
+                if (!can_continue)
+                {
+                    Console.WriteLine($"Доказательство невозможно.");
+                    return;
+                }
+
+                //Debug
+                if (newAndOldFacts.Contains("T16"))
+                {
+                    Console.WriteLine("Log: Вошли в цикл");
+                }
+
+                //Если нашли то, что нужно
+                if (newAndOldFacts.Contains(need))
+                {
+                    Console.WriteLine($"Доказательство возможно. Глубина вывода - {depth}");
+                    return; //возврат пути TODO
+                }
+
+                getted_facts.UnionWith(newAndOldFacts);
+            }
         }
 
-        static void ReverceSearch(string[] getted_facts, string need)
+        static void ReverceSearch(HashSet<string> getted_facts, string need)
         {
-            if (getted_facts.Length == 1 && getted_facts[0] == need)
+            if (getted_facts.Count == 1 && getted_facts.Contains(need))
             {
                 Console.WriteLine($"'{description[need]}' <=> '{description[need]}'.\nГлубина 0.");
                 return;
@@ -179,12 +241,12 @@ namespace ProductionModel
 
             // Постановка задачи
             Console.WriteLine($"\nКонец пользовательского ввода.\n\nЗадача: {string.Join(", ", getted_facts)} => {need} с помощью {(search_method == "1" ? "прямого" : "обратного")} поиска.\n\n");
-
+            HashSet<string> getted_facts_hs = (getted_facts.ToHashSet());
             // Алгоритмы
             if (search_method == "1")
-                ForwardSearch(getted_facts, need);
+                ForwardSearch(getted_facts_hs, need);
             else
-                ReverceSearch(getted_facts, need);
+                ReverceSearch(getted_facts_hs, need);
         }
     }
 }
