@@ -14,7 +14,7 @@ namespace ProductionModel
         static HashSet<string> facts = new HashSet<string>();
 
         static Dictionary<string, HashSet<string>> forward_productions = new Dictionary<string, HashSet<string>>();// В доказательстве каких теорем участвует данный факт(ключ).
-        static HashSet<(string, List<string>)> reverce_productions = new HashSet<(string, List<string>)>();// Что доказывается, [Что для этого необходимо]
+        static Dictionary<string, List<List<string>>> reverce_productions = new Dictionary<string, List<List<string>>>();// Что доказывается, [...Что для этого необходимо...]
 
         static Dictionary<string, string> description = new Dictionary<string, string>();
 
@@ -44,7 +44,10 @@ namespace ProductionModel
                             continue;
                         left.Add(parsed[i]);
                     }
-                    reverce_productions.Add((right, left));
+
+                    if (!reverce_productions.ContainsKey(right))
+                        reverce_productions[right] = new List<List<string>>();
+                    reverce_productions[right].Add(left);
                     
                     // для прямого поиска
                     foreach (string s in left)
@@ -57,7 +60,7 @@ namespace ProductionModel
 
                     facts.Add(right);
                 }
-                Console.WriteLine($"Log: Найдено {reverce_productions.Count} продукций и {facts.Count} уникальных элементов.");
+                Console.WriteLine($"Log: Найдено {reverce_productions.Count} продукций (с повторами) и {facts.Count} уникальных элементов.");
             }
             catch (Exception ex)
             {
@@ -93,7 +96,7 @@ namespace ProductionModel
 
         static void ForwardSearch(HashSet<string> getted_facts, string need)
         {
-            if (getted_facts.Count == 1 && getted_facts.Contains(need))
+            if (getted_facts.Contains(need))
             {
                 Console.WriteLine($"'{description[need]}' <=> '{description[need]}'.\nГлубина 0."); 
                 return;
@@ -104,27 +107,20 @@ namespace ProductionModel
             while (true)
             {
                 ++depth;
+                Console.WriteLine(depth + " " + newAndOldFacts.Count);// DEBUG
 
-                bool can_continue = false;
                 foreach (string s in getted_facts)
                 {
-                    // Смотрим, можно ли что-то получить из текущего факта
-                    HashSet<string> can_goto;
-                    if (forward_productions.ContainsKey(s))
-                    {
-                        can_goto = forward_productions[s];
-                        can_continue = true;
-                    }
-                    else continue;
+                    HashSet<string> can_goto = forward_productions[s];
 
                     // Проходим по кандидатным правилам, в которых слева участвует факт 's'
-                    foreach(string cgt in can_goto)
+                    foreach (string cgt in can_goto)
                     {
-                        if (getted_facts.Contains(cgt)) continue;//если такой факт уже имеется/доказан
+                        if (getted_facts.Contains(cgt)) continue;// если такой факт уже имеется/доказан
 
-                        List<List<string>> founded_productions = reverce_productions.Where(elem => Pred(elem, cgt)).Select(elem => elem.Item2).ToList();//список с доказательствами для cgt
+                        List<List<string>> founded_productions = reverce_productions[cgt];
 
-                        //есть ли всё необходимое для одного из док-в
+                        // есть ли всё необходимое для одного из док-в
                         if (founded_productions.Exists(lst => {
                             foreach (string f in lst)
                                 if (!getted_facts.Contains(f)) return false;
@@ -134,12 +130,6 @@ namespace ProductionModel
                             newAndOldFacts.Add(cgt);
                         }
                     }
-                }
-
-                if (!can_continue)
-                {
-                    Console.WriteLine($"Доказательство невозможно.");
-                    return;
                 }
 
                 //Debug
