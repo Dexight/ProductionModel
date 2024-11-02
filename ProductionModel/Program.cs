@@ -13,7 +13,7 @@ namespace ProductionModel
     {
         static HashSet<string> facts = new HashSet<string>();
 
-        static HashSet<(string, List<string>)> forward_productions = new HashSet<(string, List<string>)>();// Откуда и что можно доказать.
+        static Dictionary<string, HashSet<string>> forward_productions = new Dictionary<string, HashSet<string>>();// В доказательстве каких теорем участвует данный факт(ключ).
         static HashSet<(string, List<string>)> reverce_productions = new HashSet<(string, List<string>)>();// Что доказывается, [Что для этого необходимо]
 
         static Dictionary<string, string> description = new Dictionary<string, string>();
@@ -49,12 +49,15 @@ namespace ProductionModel
                     // для прямого поиска
                     foreach (string s in left)
                     {
-                        
+                        if (!forward_productions.ContainsKey(s))
+                            forward_productions[s] = new HashSet<string>();
+                        forward_productions[s].Add(right);
+
                     }
 
                     facts.Add(right);
                 }
-                Console.WriteLine($"Log: Найдено {reverce_productions.Count} продукций и {facts.Count} фактов.");
+                Console.WriteLine($"Log: Найдено {reverce_productions.Count} продукций и {facts.Count} уникальных элементов.");
             }
             catch (Exception ex)
             {
@@ -75,7 +78,7 @@ namespace ProductionModel
                     string descr = string.Join(" ", parsed.Skip(1));
                     description[parsed[0]] = descr;
                 }
-                Console.WriteLine($"Log: Описано {description.Count} фактов.\n");
+                Console.WriteLine($"Log: Описано {description.Count} уникальных элементов.\n");
             }
             catch (Exception ex)
             {
@@ -104,7 +107,7 @@ namespace ProductionModel
 
         }
 
-        static void Main(string[] args)
+        static void Main()
         {
             //чтение из файлов
             parseProductions();
