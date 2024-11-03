@@ -9,7 +9,7 @@ namespace ProductionModel
     {
         static void PrintSet(HashSet<string> collection)
         {
-            Console.Write("{");
+            Console.Write("    {");
             foreach (string i in collection)
             {
                 Console.Write(" {0}", i);
@@ -95,21 +95,46 @@ namespace ProductionModel
             }
         }
 
-        static bool Pred((string, List<string>) elem, string equal)
+        static void PrintWay(Dictionary<int, Dictionary<string, List<string>>> output, int depth, string need)
         {
-            return elem.Item1 == equal;
+            HashSet<string> proved = new HashSet<string> { need };
+
+            while (depth > 0)
+            {
+                Console.WriteLine($"\n{depth} слой");
+                HashSet<string> shouldWatch = new HashSet<string>();
+                foreach (string s in proved)
+                {
+                    if (output[depth].ContainsKey(s))
+                    {
+                        int i = 0;
+                        foreach (string ss in output[depth][s])
+                        {
+                            Console.Write(ss);
+                            shouldWatch.Add(ss);
+                            if (i < output[depth][s].Count - 1)
+                                Console.Write(" & ");
+                            ++i;
+                        }
+                        Console.WriteLine(" => " + s);
+                    }
+                    else shouldWatch.Add(s);
+                }
+                proved = shouldWatch.ToHashSet();// по значению
+                depth--;
+            }
         }
 
         static void ForwardSearch(HashSet<string> getted_facts, string need)
         {
             int debug_input_count = getted_facts.Count;
+            Dictionary<int, Dictionary<string, List<string>>> output = new Dictionary<int, Dictionary<string, List<string>>>(); //глубина => список продукций вида (доказанное -> из чего)
 
             if (getted_facts.Contains(need))
             {
-                Console.WriteLine($"'{description[need]}' <=> '{description[need]}'.\nГлубина 0."); 
+                Console.WriteLine($"'{need}:{description[need]}' <=> {need}:'{description[need]}'.\nГлубина 0."); 
                 return;
             }
-
 
 
             int depth = 0;
@@ -135,9 +160,11 @@ namespace ProductionModel
                         List<List<string>> founded_productions = reverce_productions[cgt];
 
                         // есть ли всё необходимое для одного из док-в
+                        List<string> left = new List<string>();
                         if (founded_productions.Exists(lst => {
                             foreach (string f in lst)
                                 if (!getted_facts.Contains(f)) return false;
+                            left = lst.ToList();//.ToList() для передачи по значению
                             return true;
                         }))
                         {
@@ -148,30 +175,29 @@ namespace ProductionModel
                                 forward_productions[key].Remove(cgt);
                             newFacts.Add(cgt);
 
+                            if (!output.ContainsKey(depth))
+                                output[depth] = new Dictionary<string, List<string>>();
+                            output[depth][cgt] = left; //на этой глубине мы доказали теорему cgt используя элементы из left
                             can_continue = true;
                         }
                     }
                 }
 
-                //Debug
-                //if (newFacts.Contains("T16"))
-                //{
-                //    Console.WriteLine("Log: Вошли в цикл");
-                //}
-
                 //Если нашли то, что нужно
                 if (newFacts.Contains(need))
                 {
-                    Console.WriteLine($"Доказательство возможно. Глубина вывода - {depth}");
-                    return; //возврат пути TODO
+                    Console.WriteLine($"ДОКАЗАТЕЛЬСТВО ВОЗМОЖНО. Глубина вывода - {depth}");
+                    PrintWay(output, depth, need);
+                    return;
                 }
 
                 if (!can_continue)
                 {
-                    Console.WriteLine("LOG: getted_facts.Count = " + getted_facts.Count + $" - {debug_input_count}(стартовые факты) = newFacts.Count = " + newFacts.Count + ";");
-                    PrintSet(getted_facts);
-                    PrintSet(newFacts);
-                    Console.WriteLine($"Поиск прекращён на {depth} глубине. Доказательство невозможно.");
+                    //Console.WriteLine("    LOG: getted_facts.Count = " + getted_facts.Count + $" - {debug_input_count}(стартовые факты) = newFacts.Count = " + newFacts.Count + ";");
+                    //PrintSet(getted_facts);
+                    //PrintSet(newFacts);
+                    //Console.Write($"\nПоиск прекращён на {depth} глубине. ");
+                    Console.WriteLine($"ДОКАЗАТЕЛЬСТВО НЕВОЗМОЖНО.\n");
                     return;
                 }    
 
