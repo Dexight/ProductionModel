@@ -11,6 +11,16 @@ namespace ProductionModel
 {
     internal class Program
     {
+        static void PrintSet(HashSet<string> collection)
+        {
+            Console.Write("{");
+            foreach (string i in collection)
+            {
+                Console.Write(" {0}", i);
+            }
+            Console.WriteLine(" }");
+        }
+
         static HashSet<string> facts = new HashSet<string>();
 
         static Dictionary<string, HashSet<string>> forward_productions = new Dictionary<string, HashSet<string>>();// В доказательстве каких теорем участвует данный факт(ключ).
@@ -96,27 +106,35 @@ namespace ProductionModel
 
         static void ForwardSearch(HashSet<string> getted_facts, string need)
         {
+            int debug_input_count = getted_facts.Count;
+
             if (getted_facts.Contains(need))
             {
                 Console.WriteLine($"'{description[need]}' <=> '{description[need]}'.\nГлубина 0."); 
                 return;
             }
 
+
+
             int depth = 0;
-            HashSet<string> newAndOldFacts = new HashSet<string>();
+            HashSet<string> newFacts = new HashSet<string>();
             while (true)
             {
                 ++depth;
-                Console.WriteLine(depth + " " + newAndOldFacts.Count);// DEBUG
+                //Console.WriteLine(depth + " " + newFacts.Count);// DEBUG
 
+                bool can_continue = false; //будет true, если хотя бы 1 теорема была доказана
                 foreach (string s in getted_facts)
                 {
-                    HashSet<string> can_goto = forward_productions[s];
-
-                    // Проходим по кандидатным правилам, в которых слева участвует факт 's'
+                    if (!forward_productions.ContainsKey(s))
+                        continue;
+                    List<string> can_goto = forward_productions[s].ToList();// в док-ве каких правых частей участвует 's'
+                    
+                    // Проходим по кандидатным правилам
                     foreach (string cgt in can_goto)
                     {
                         if (getted_facts.Contains(cgt)) continue;// если такой факт уже имеется/доказан
+                        if (!reverce_productions.ContainsKey(cgt)) continue;
 
                         List<List<string>> founded_productions = reverce_productions[cgt];
 
@@ -127,25 +145,41 @@ namespace ProductionModel
                             return true;
                         }))
                         {
-                            newAndOldFacts.Add(cgt);
+                            //если теорема доказана
+                            reverce_productions.Remove(cgt);// удаляем правила вывода этого факта из общего списка продукций
+                            List<string> should_delete_keys = forward_productions.Where(elem => elem.Value.Contains(cgt)).Select(elem => elem.Key).ToList();
+                            foreach(string key in should_delete_keys)
+                                forward_productions[key].Remove(cgt);
+                            newFacts.Add(cgt);
+
+                            can_continue = true;
                         }
                     }
                 }
 
                 //Debug
-                if (newAndOldFacts.Contains("T16"))
-                {
-                    Console.WriteLine("Log: Вошли в цикл");
-                }
+                //if (newFacts.Contains("T16"))
+                //{
+                //    Console.WriteLine("Log: Вошли в цикл");
+                //}
 
                 //Если нашли то, что нужно
-                if (newAndOldFacts.Contains(need))
+                if (newFacts.Contains(need))
                 {
                     Console.WriteLine($"Доказательство возможно. Глубина вывода - {depth}");
                     return; //возврат пути TODO
                 }
 
-                getted_facts.UnionWith(newAndOldFacts);
+                if (!can_continue)
+                {
+                    Console.WriteLine("LOG: getted_facts.Count = " + getted_facts.Count + $" - {debug_input_count}(стартовые факты) = newFacts.Count = " + newFacts.Count + ";");
+                    PrintSet(getted_facts);
+                    PrintSet(newFacts);
+                    Console.WriteLine($"Поиск прекращён на {depth} глубине. Доказательство невозможно.");
+                    return;
+                }    
+
+                getted_facts.UnionWith(newFacts);
             }
         }
 
