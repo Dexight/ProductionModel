@@ -218,28 +218,35 @@ namespace ProductionModel
             }
 
             int depth = 0;
-            HashSet<HashSet<string>> variations = new HashSet<HashSet<string>> ();// деревья возможных решений
+            List<HashSet<string>> variations = new List<HashSet<string>> ();// деревья возможных решений
             HashSet<string> first = new HashSet<string> {need};
             variations.Add(first);
 
             while (true)
             {
                 ++depth;
-                HashSet<HashSet<string>> new_variations = new HashSet<HashSet<string>>();// новое дерево возможных решений
+                List<HashSet<string>> new_variations = new List<HashSet<string>>();// новое дерево возможных решений
 
-                HashSet<HashSet<string>> new_vv;
+                List<HashSet<string>> build_vv;
                 foreach (HashSet<string> v in variations)
                 {
-                    new_vv = new HashSet<HashSet<string>> ();
+                    build_vv = new List<HashSet<string>> ();
                     foreach (string fact in v)
                     {
                         List<List<string>> left = reverce_productions[fact];//варианты левых частей продукций для fact
-                           
+                        foreach(List<string> l in left)
+                        {
+                            HashSet<string> new_v = new HashSet<string> ();
+                            foreach (string s in l)
+                            {
+                                new_v.Add(s);
+                            }
+                        }
                     }
                 }
 
                 variations.Clear();
-                variations = new_variations.ToHashSet();
+                variations = new_variations.ToList();
             }
         }
 
