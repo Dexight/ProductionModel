@@ -18,9 +18,14 @@ namespace ProductionModel
         }
 
         static HashSet<string> facts = new HashSet<string>();
-
-        static Dictionary<string, HashSet<string>> forward_productions = new Dictionary<string, HashSet<string>>();// В доказательстве каких теорем участвует данный факт(ключ).
-        static Dictionary<string, List<List<string>>> reverce_productions = new Dictionary<string, List<List<string>>>();// Что доказывается, [...Что для этого необходимо...]
+        /// <summary>
+        /// В доказательстве каких теорем участвует данный факт(ключ).
+        /// </summary>
+        static Dictionary<string, HashSet<string>> forward_productions = new Dictionary<string, HashSet<string>>();
+        /// <summary>
+        /// Что доказывается, [...Что для этого необходимо...]
+        /// </summary>
+        static Dictionary<string, List<List<string>>> reverce_productions = new Dictionary<string, List<List<string>>>();
 
         static Dictionary<string, string> description = new Dictionary<string, string>();
 
@@ -136,7 +141,6 @@ namespace ProductionModel
                 return;
             }
 
-
             int depth = 0;
             HashSet<string> newFacts = new HashSet<string>();
             while (true)
@@ -209,10 +213,34 @@ namespace ProductionModel
         {
             if (getted_facts.Count == 1 && getted_facts.Contains(need))
             {
-                Console.WriteLine($"'{description[need]}' <=> '{description[need]}'.\nГлубина 0.");
+                Console.WriteLine($"'{need}' <=> '{need}'.\nГлубина 0.");
                 return;
             }
 
+            int depth = 0;
+            HashSet<HashSet<string>> variations = new HashSet<HashSet<string>> ();// деревья возможных решений
+            HashSet<string> first = new HashSet<string> {need};
+            variations.Add(first);
+
+            while (true)
+            {
+                ++depth;
+                HashSet<HashSet<string>> new_variations = new HashSet<HashSet<string>>();// новое дерево возможных решений
+
+                HashSet<HashSet<string>> new_vv;
+                foreach (HashSet<string> v in variations)
+                {
+                    new_vv = new HashSet<HashSet<string>> ();
+                    foreach (string fact in v)
+                    {
+                        List<List<string>> left = reverce_productions[fact];//варианты левых частей продукций для fact
+                           
+                    }
+                }
+
+                variations.Clear();
+                variations = new_variations.ToHashSet();
+            }
         }
 
         static void Main()
