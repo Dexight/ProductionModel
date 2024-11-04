@@ -209,6 +209,67 @@ namespace ProductionModel
             }
         }
 
+        static void AddNewVariations(List<List<string>> new_v, ref List<HashSet<string>> new_variations)
+        {
+            foreach (List<string> l in new_v)
+            {
+                new_variations.Add(l.ToHashSet());
+            }
+        }
+
+        /// <summary>
+        /// Проверка, что хотя бы в 1 дереве есть решение
+        /// </summary>
+        static bool CheckSolution(List<HashSet<string>> new_variations, HashSet<string> getted_facts)
+        {
+            foreach (HashSet<string> hs in new_variations)
+            {
+                bool is_solution = true;
+
+                foreach(string elem in hs)
+                {
+                    if (!getted_facts.Contains(elem))
+                    {
+                        is_solution = false;
+                        break;
+                    }
+                }
+
+                if (is_solution) return true;
+            }
+
+            return false;
+        }
+
+        static List<List<string>> FactProccessing(string fact, List<List<string>> new_v)
+        {
+            if (!reverce_productions.ContainsKey(fact)) return null; // если факт доказать невозможно
+
+            List<List<string>> left = reverce_productions[fact];// варианты левых частей продукций для fact
+
+            if (left.Count == 1)
+            {
+                new_v.ForEach(l => l.AddRange(left[0]));
+                return new_v;
+            }
+            else // >1
+            {
+                List<List<string>> current_v = new List<List<string>>();//новые деревья
+
+                foreach (var n in new_v)//для каждого прошлого дерева
+                {
+                    List<string> n_copy;
+                    foreach (var l in left) // для каждого варианта делаем ответвление (по факту - новое дерево)
+                    {
+                        n_copy = n.ToList();
+                        n_copy.AddRange(l);
+                        current_v.Add(n_copy);
+                    }
+                }
+                return current_v;
+            }
+        }
+
         static void ReverceSearch(HashSet<string> getted_facts, string need)
         {
             if (getted_facts.Count == 1 && getted_facts.Contains(need))
@@ -222,27 +283,58 @@ namespace ProductionModel
             HashSet<string> first = new HashSet<string> {need};
             variations.Add(first);
 
+            HashSet<string> visited = new HashSet<string>();
+
             while (true)
             {
                 ++depth;
                 List<HashSet<string>> new_variations = new List<HashSet<string>>();// новое дерево возможных решений
 
-                List<HashSet<string>> build_vv;
-                foreach (HashSet<string> v in variations)
+                //----
+                bool is_end = true; // false будет при условии, что что-то было добавлено в visited
+                foreach (HashSet<string> v in variations) //рассматриваем каждое дерево
                 {
-                    build_vv = new List<HashSet<string>> ();
-                    foreach (string fact in v)
+                    List<List<string>> new_v = new List<List<string>> { new List<string>() }; //новые деревья из текущего (>=1)
+
+                    bool can_prove = true;
+                    foreach (string fact in v) //каждый факт в дереве
                     {
-                        List<List<string>> left = reverce_productions[fact];//варианты левых частей продукций для fact
-                        foreach(List<string> l in left)
+                        if (!visited.Contains(fact))
                         {
-                            HashSet<string> new_v = new HashSet<string> ();
-                            foreach (string s in l)
-                            {
-                                new_v.Add(s);
-                            }
+                            visited.Add(fact);
+                            is_end = false;
+                        }
+
+                        if (getted_facts.Contains(fact)) //если этот факт был введен пользователем
+                        {
+                            new_v.ForEach(l => l.Add(fact));
+                            continue;
+                        }
+                        
+                        new_v = FactProccessing(fact, new_v);
+
+                        if (new_v == null) // если факт - аксиома (соответственно не введённая в список доступных), то дерево недоказуемо - удаляем его
+                        {
+                            can_prove = false;
+                            break;
                         }
                     }
+
+                    if (can_prove)
+                        AddNewVariations(new_v, ref new_variations);
+                }
+                //----
+
+                if (CheckSolution(new_variations, getted_facts))
+                {
+                    Console.WriteLine($"ТЕОРЕМА ДОКАЗУЕМА. Глубина: {depth}");
+                    return;
+                }
+
+                if (is_end)
+                {
+                    Console.WriteLine($"ТЕОРЕМА НЕДОКАЗУЕМА. Остановка на глубине: {depth}");
+                    return;
                 }
 
                 variations.Clear();
