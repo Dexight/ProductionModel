@@ -137,7 +137,7 @@ namespace ProductionModel
 
             if (getted_facts.Contains(need))
             {
-                Console.WriteLine($"'{need}:{description[need]}' <=> {need}:'{description[need]}'.\nГлубина 0.");
+                Console.WriteLine($"{need}:'{description[need]}' <=> {need}:'{description[need]}'");
                 return;
             }
 
@@ -362,6 +362,12 @@ namespace ProductionModel
 
         static void ReverceSearch(HashSet<string> getted_facts, string need)
         {
+            if (getted_facts.Contains(need))
+            {
+                Console.WriteLine($"{need}:'{description[need]}' <=> {need}:'{description[need]}'");
+                return;
+            }
+
             Stack<Node> stack = new Stack<Node>();
             stack.Push(new Node(need));
 
