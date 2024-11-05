@@ -39,7 +39,7 @@ namespace ProductionModel
                 foreach (string line in lines)
                 {
                     string[] parsed = line.Split(' ');
-                    
+
                     if (parsed.Length == 1) // для аксиом
                     {
                         facts.Add(parsed[0]);
@@ -59,7 +59,7 @@ namespace ProductionModel
                     if (!reverce_productions.ContainsKey(right))
                         reverce_productions[right] = new List<List<string>>();
                     reverce_productions[right].Add(left);
-                    
+
                     // для прямого поиска
                     foreach (string s in left)
                     {
@@ -132,12 +132,12 @@ namespace ProductionModel
 
         static void ForwardSearch(HashSet<string> getted_facts, string need)
         {
-            int debug_input_count = getted_facts.Count;
+            //int debug_input_count = getted_facts.Count;
             Dictionary<int, Dictionary<string, List<string>>> output = new Dictionary<int, Dictionary<string, List<string>>>(); //глубина => список продукций вида (доказанное -> из чего)
 
             if (getted_facts.Contains(need))
             {
-                Console.WriteLine($"'{need}:{description[need]}' <=> {need}:'{description[need]}'.\nГлубина 0."); 
+                Console.WriteLine($"'{need}:{description[need]}' <=> {need}:'{description[need]}'.\nГлубина 0.");
                 return;
             }
 
@@ -154,7 +154,7 @@ namespace ProductionModel
                     if (!forward_productions.ContainsKey(s))
                         continue;
                     List<string> can_goto = forward_productions[s].ToList();// в док-ве каких правых частей участвует 's'
-                    
+
                     // Проходим по кандидатным правилам
                     foreach (string cgt in can_goto)
                     {
@@ -175,7 +175,7 @@ namespace ProductionModel
                             //если теорема доказана
                             reverce_productions.Remove(cgt);// удаляем правила вывода этого факта из общего списка продукций
                             List<string> should_delete_keys = forward_productions.Where(elem => elem.Value.Contains(cgt)).Select(elem => elem.Key).ToList();
-                            foreach(string key in should_delete_keys)
+                            foreach (string key in should_delete_keys)
                                 forward_productions[key].Remove(cgt);
                             newFacts.Add(cgt);
 
@@ -203,143 +203,221 @@ namespace ProductionModel
                     //Console.Write($"\nПоиск прекращён на {depth} глубине. ");
                     Console.WriteLine($"ДОКАЗАТЕЛЬСТВО НЕВОЗМОЖНО.\n");
                     return;
-                }    
+                }
 
                 getted_facts.UnionWith(newFacts);
             }
         }
 
-        static void AddNewVariations(List<List<string>> new_v, ref List<HashSet<string>> new_variations)
+        class Node
         {
-            foreach (List<string> l in new_v)
+            static public Dictionary<string, Node> dict; //словарь быстрого доступа к нодам
+
+            public string body;
+            public bool proved;
+            public List<string> proved_from = null; // если null - то лист
+
+            private HashSet<string> parents;
+            private List<List<string>> childrens = null;
+            private bool isCycled = false;
+            private int depth = -1;
+
+            public Node(string b)
             {
-                new_variations.Add(l.ToHashSet());
+                body = b;
+                parents = new HashSet<string>();
+                proved = false;
             }
-        }
 
-        /// <summary>
-        /// Проверка, что хотя бы в 1 дереве есть решение
-        /// </summary>
-        static bool CheckSolution(List<HashSet<string>> new_variations, HashSet<string> getted_facts)
-        {
-            foreach (HashSet<string> hs in new_variations)
+            public void AddChildrens(List<List<string>> c)
             {
-                bool is_solution = true;
+                childrens = c.ToList();
+            }
 
-                foreach(string elem in hs)
+            public List<List<string>> getChildrens()
+            {
+                return childrens;
+            }
+
+            public void AddNewParents(Node parent) // обработка циклов
+            {
+                if (!isCycled)
                 {
-                    if (!getted_facts.Contains(elem))
-                    {
-                        is_solution = false;
-                        break;
-                    }
+                    parents.UnionWith(parent.parents);
+                    parents.Add(parent.body);
+
+                    isCycled = parents.Contains(body);
+                    return;
                 }
 
-                if (is_solution) return true;
+                //если часть цикла
+                parents.Clear();
+                proved = false;
             }
 
-            return false;
-        }
-
-        static List<List<string>> FactProccessing(string fact, List<List<string>> new_v)
-        {
-            if (!reverce_productions.ContainsKey(fact)) return null; // если факт доказать невозможно
-
-            List<List<string>> left = reverce_productions[fact];// варианты левых частей продукций для fact
-
-            if (left.Count == 1)
+            public void UpdateProve()
             {
-                new_v.ForEach(l => l.AddRange(left[0]));
-                return new_v;
-            }
-            else // >1
-            {
-                List<List<string>> current_v = new List<List<string>>();//новые деревья
-
-                foreach (var n in new_v)//для каждого прошлого дерева
+                if (childrens != null && !proved)
                 {
-                    List<string> n_copy;
-                    foreach (var l in left) // для каждого варианта делаем ответвление (по факту - новое дерево)
+                    foreach (List<string> child in childrens)
                     {
-                        n_copy = n.ToList();
-                        n_copy.AddRange(l);
-                        current_v.Add(n_copy);
+                        bool all_nodes_proved = true;
+                        foreach (string s in child)
+                        {
+                            Node n = dict[s];
+                            if (!n.proved)
+                            {
+                                all_nodes_proved = false;
+                                break;
+                            }
+                        }
+
+                        if (all_nodes_proved)
+                        {
+                            proved_from = child;
+                            proved = true;
+                            break;
+                        }
                     }
                 }
-                return current_v;
+            }
+
+            public bool IsCycled()
+            {
+                return isCycled;
+            }
+
+            static public void printWay(string root, HashSet<string> getted_facts)
+            {
+
+                Node root_node = dict[root];
+                if (!root_node.proved)
+                {
+                    Console.WriteLine("ДОКАЗАТЕЛЬСТВО НЕВОЗМОЖНО.");
+                }
+                else
+                {
+                    Dictionary<int, Dictionary<string, List<string>>> output = new Dictionary<int, Dictionary<string, List<string>>>();//глубина => список продукций вида (доказанное -> из чего)
+                    //присвоим нодам соответствующую им глубину
+                    foreach (string fact in getted_facts)
+                    {
+                        if (dict.ContainsKey(fact))
+                            dict[fact].depth = 0;
+                    }
+
+                    HashSet<string> shouldVisit = new HashSet<string> { root };
+
+                    while (dict[root].depth == -1)
+                    {
+                        HashSet<string> newShouldVisit = new HashSet<string>();
+
+                        foreach (string s in shouldVisit)
+                        {
+                            Node s_node = dict[s];
+                            List<string> from = s_node.proved_from;
+                            if (s_node.depth == -1)
+                            {
+                                bool canCalculateDepth = true;
+                                int max_depth = -1;
+
+                                foreach (string f in from)
+                                {
+                                    int d = dict[f].depth;
+                                    if (d == -1)
+                                    {
+                                        canCalculateDepth = false;
+                                        newShouldVisit.Add(f);
+                                    }
+
+                                    if (max_depth < d) max_depth = d;
+                                }
+
+                                if (canCalculateDepth)
+                                {
+                                    dict[s].depth = max_depth+1;
+                                    if (!output.ContainsKey(max_depth+1))
+                                    {
+                                        output[max_depth+1] = new Dictionary<string, List<string>>();
+                                    }
+                                    output[max_depth + 1][s] = dict[s].proved_from;
+                                }
+                                else
+                                {
+                                    newShouldVisit.Add(s);
+                                }
+                            }
+                        }
+
+                        shouldVisit = newShouldVisit.ToHashSet();
+                    }
+
+                    int depth = dict[root].depth;
+                    Console.WriteLine($"\nДОКАЗАТЕЛЬСТВО ВОЗМОЖНО. Глубина вывода: {depth}\n");
+                    
+                    // Вывод
+                    PrintWay(output, depth, root);
+                }
             }
         }
 
         static void ReverceSearch(HashSet<string> getted_facts, string need)
         {
-            if (getted_facts.Count == 1 && getted_facts.Contains(need))
+            Stack<Node> stack = new Stack<Node>();
+            stack.Push(new Node(need));
+
+            Stack<string> all_steps = new Stack<string>();
+
+            Node.dict = new Dictionary<string, Node>();
+            //строим дерево с корня
+            while (stack.Count > 0)
             {
-                Console.WriteLine($"'{need}' <=> '{need}'.\nГлубина 0.");
-                return;
-            }
+                Node n = stack.Pop();
 
-            int depth = 0;
-            List<HashSet<string>> variations = new List<HashSet<string>> ();// деревья возможных решений
-            HashSet<string> first = new HashSet<string> {need};
-            variations.Add(first);
+                all_steps.Push(n.body);
 
-            HashSet<string> visited = new HashSet<string>();
+                Node.dict[n.body] = n;
 
-            while (true)
-            {
-                ++depth;
-                List<HashSet<string>> new_variations = new List<HashSet<string>>();// новое дерево возможных решений
-
-                //----
-                bool is_end = true; // false будет при условии, что что-то было добавлено в visited
-                foreach (HashSet<string> v in variations) //рассматриваем каждое дерево
+                if (getted_facts.Contains(n.body))//если лист
                 {
-                    List<List<string>> new_v = new List<List<string>> { new List<string>() }; //новые деревья из текущего (>=1)
+                    Node.dict[n.body].proved = true;
+                    continue;
+                }
 
-                    bool can_prove = true;
-                    foreach (string fact in v) //каждый факт в дереве
+                if (n.IsCycled())//обработка цикла
+                {
+                    continue;
+                }
+
+                if (!reverce_productions.ContainsKey(n.body)) continue;
+
+                List<List<string>> childs = reverce_productions[n.body];
+
+                foreach (List<string> l in childs)
+                {
+                    foreach (string s in l)
                     {
-                        if (!visited.Contains(fact))
-                        {
-                            visited.Add(fact);
-                            is_end = false;
-                        }
+                        Node s_node;
 
-                        if (getted_facts.Contains(fact)) //если этот факт был введен пользователем
-                        {
-                            new_v.ForEach(l => l.Add(fact));
-                            continue;
-                        }
-                        
-                        new_v = FactProccessing(fact, new_v);
+                        if (!Node.dict.ContainsKey(s)) //если такая нода ещё не существует
+                            s_node = new Node(s);
+                        else s_node = Node.dict[s];
 
-                        if (new_v == null) // если факт - аксиома (соответственно не введённая в список доступных), то дерево недоказуемо - удаляем его
-                        {
-                            can_prove = false;
-                            break;
-                        }
+                        s_node.AddNewParents(n);//множество ВООБЩЕ ВСЕХ потомков
+
+                        stack.Push(s_node);
                     }
-
-                    if (can_prove)
-                        AddNewVariations(new_v, ref new_variations);
-                }
-                //----
-
-                if (CheckSolution(new_variations, getted_facts))
-                {
-                    Console.WriteLine($"ТЕОРЕМА ДОКАЗУЕМА. Глубина: {depth}");
-                    return;
                 }
 
-                if (is_end)
-                {
-                    Console.WriteLine($"ТЕОРЕМА НЕДОКАЗУЕМА. Остановка на глубине: {depth}");
-                    return;
-                }
-
-                variations.Clear();
-                variations = new_variations.ToList();
+                n.AddChildrens(childs);
             }
+
+            while (all_steps.Count > 0)
+            {
+                Node.dict[all_steps.Pop()].UpdateProve();
+            }
+
+            // Вывод пути
+            Node.printWay(need, getted_facts);
         }
 
         static void Main()
@@ -376,11 +454,11 @@ namespace ProductionModel
                 if (!flag)
                     break;
             }
-                //Что нужно доказать
+            //Что нужно доказать
             string need;
 
             Console.WriteLine("Введите, что требуется доказать.\nНапример: 'T10'\n");
-            
+
             while (true)
             {
                 need = Console.ReadLine();
